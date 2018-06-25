@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.util.Log;
+import android.provider.MediaStore;
+import android.webkit.MimeTypeMap;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -176,7 +178,8 @@ public class DocumentPickerModule extends ReactContextBaseJavaModule {
 
 		ContentResolver contentResolver = getReactApplicationContext().getContentResolver();
 
-		map.putString(FIELD_TYPE, contentResolver.getType(uri));
+		String mimeType = contentResolver.getType(uri);
+		map.putString(FIELD_TYPE, mimeType);
 
 		Cursor cursor = contentResolver.query(uri, null, null, null, null, null);
 
@@ -185,12 +188,36 @@ public class DocumentPickerModule extends ReactContextBaseJavaModule {
 				int displayNameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
 				if (!cursor.isNull(displayNameIndex)) {
 					map.putString(FIELD_NAME, cursor.getString(displayNameIndex));
+				}else {
+					String result = uri.getPath();
+					displayNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+					if (!cursor.isNull(displayNameIndex)) {
+						cursor.moveToFirst();
+						result = cursor.getString(displayNameIndex);
+					}
+
+			    int cut = result.lastIndexOf('/');
+			    if (cut != -1) {
+			      result = result.substring(cut + 1);
+			    }
+					map.putString(FIELD_NAME, result);
 				}
 
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+				if ((mimeType == null || mimeType.equals("")) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 					int mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
 					if (!cursor.isNull(mimeIndex)) {
 						map.putString(FIELD_TYPE, cursor.getString(mimeIndex));
+					}else{
+						String type = null;
+						String url = uri.getPath();
+				    String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+				    if (extension != null) {
+
+				        type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+				    }
+						if(type != null){
+							map.putString(FIELD_TYPE, type);
+						}
 					}
 				}
 
